@@ -1,10 +1,9 @@
-//
-// Created by adity on 9/3/2025.
-//
-
-// initial hw comment //
-
-//include header
+/*
+ * Homework 1
+ * Adi Agrawal
+ * CS 240, Fall 2025
+ * Purdue University
+ */
 
 #include "hw1.h"
 #include <stdio.h>
@@ -28,10 +27,11 @@
 #define PAIR (1)
 #define HIGH_CARD (0)
 
-char g_shuffled_deck[MAX_CARDS] = {};
+char g_shuffled_deck[MAX_CARDS] = {"23456789XKQAJ23456789XKQAJ23456789XKQAJ23456789XKQAJ"};
 char g_card_hands[MAX_PLAYERS][MAX_CARDS_PER_HAND] = {};
 int g_game_results[MAX_PLAYERS] = {};
 
+/* Write your code here */
 
 /**
  * check_deck - validate all cards in g_shuffled_deck
@@ -56,6 +56,21 @@ int check_deck() {
     }
   }
   return OK; //return ok if no invalid cards
+}
+
+int check_player_cards(int player_index, int num_of_cards) {
+  for (int i = 0; i < num_of_cards; i++) {
+    if (g_card_hands[player_index][i] < 50) {
+      return INVALID_CARD;
+    }
+    if (g_card_hands[player_index][i] > 57) {
+      if (g_card_hands[player_index][i] != 'J' && g_card_hands[player_index][i] != 'Q' && g_card_hands[player_index][i]
+        != 'A' && g_card_hands[player_index][i] != 'K' && g_card_hands[player_index][i] != 'X') {
+        return INVALID_CARD;
+      }
+    }
+  }
+  return OK;
 }
 
 /**
@@ -220,16 +235,18 @@ bool check_full_house(char cards_in_a_hand[5]) {
 /**
  * check_hand - evaluate a hand and update g_game_results
  */
+
+//HERE!!!! == true
 int check_hand(int player_index, char cards_in_a_hand[5]) {
-  if (check_four_of_a_kind(cards_in_a_hand)) {
+  if (check_four_of_a_kind(cards_in_a_hand) == true) {
     g_game_results[player_index] = FOUR_OF_A_KIND;
-  } else if (check_full_house(cards_in_a_hand)) {
+  } else if (check_full_house(cards_in_a_hand) == true) {
     g_game_results[player_index] = FULL_HOUSE;
-  } else if (check_three_of_a_kind(cards_in_a_hand)) {
+  } else if (check_three_of_a_kind(cards_in_a_hand) == true) {
     g_game_results[player_index] = THREE_OF_A_KIND;
-  } else if (check_two_pair(cards_in_a_hand)) {
+  } else if (check_two_pair(cards_in_a_hand) == true) {
     g_game_results[player_index] = TWO_PAIR;
-  } else if (check_pair(cards_in_a_hand)) {
+  } else if (check_pair(cards_in_a_hand) == true) {
     g_game_results[player_index] = PAIR;
   } else {
     g_game_results[player_index] = HIGH_CARD;
@@ -272,7 +289,11 @@ int war_sim(int cards_per_hand) {
   if (cards_per_hand < 1) {
     return ERROR;
   }
-  deal_cards(2, cards_per_hand); //deal cards_per_hand cards to 2 players
+  for (int i = 0; i < 2; i++) { //two players max
+    if (check_player_cards(i,cards_per_hand) == INVALID_CARD) {
+      return INVALID_CARD;
+    }
+  }
   for (int i = 0; i < cards_per_hand; i++) {
     //number of rounds. each loop is one round
     //tie case
@@ -305,13 +326,22 @@ int war_sim(int cards_per_hand) {
  */
 int blackjack_sim(int num_players, int dealer_total) {
   memset(g_game_results, 0, sizeof(g_game_results));
+
   //return number of wins and ties
   int total_wins_and_ties = 0;
 
-  if (num_players > MAX_PLAYERS || dealer_total < 2) {
+  ///HERE!!!!!!
+  if (num_players > MAX_PLAYERS  || num_players < 1 || dealer_total < 2) {
     return ERROR;
   }
-  deal_cards(num_players, 3); //deal 3 cards to each player
+  
+  //REMOVED DEAL CARDS!!!
+  for (int i = 0; i < num_players; i++) {
+    if (check_player_cards(i,3) == INVALID_CARD) {
+      return INVALID_CARD;
+    }
+  }
+
   for (int i = 0; i < num_players; i++) {
     //each player
     int total_value_of_cards = 0;
@@ -344,10 +374,19 @@ int blackjack_sim(int num_players, int dealer_total) {
 int poker_sim(int num_players) {
   memset(g_game_results, 0, sizeof(g_game_results));
   int number_of_hands_better_than_high_card = 0;
-  if (num_players > MAX_PLAYERS) {
+
+  //HERE!!!!!!
+  if (num_players > MAX_PLAYERS || num_players < 1) {
     return ERROR;
   }
-  deal_cards(num_players, 5);
+  // if (deal_cards(num_players, 5) == INVALID_CARD) {
+  //   return INVALID_CARD;
+  // }
+  for (int i = 0; i < num_players; i++) {
+    if (check_player_cards(i,5) == INVALID_CARD) {
+      return INVALID_CARD;
+    }
+  }
   for (int i = 0; i < num_players; i++) {
     if ((check_hand(i, g_card_hands[i])) != HIGH_CARD) {
       number_of_hands_better_than_high_card++;
@@ -355,4 +394,5 @@ int poker_sim(int num_players) {
   }
   return number_of_hands_better_than_high_card;
 }
+
 
