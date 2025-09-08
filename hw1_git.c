@@ -202,8 +202,8 @@ bool check_two_pair(char cards_in_a_hand[5]) {
       }
     }
     if (first_pair_ascii != 0) {
-        break;
-      }
+      break;
+    }
   }
   /*loop to find the second pair */
   for (int i = 0; i < 5; i++) {
@@ -232,13 +232,16 @@ bool check_pair(char cards_in_a_hand[5]) {
   int rank_duplicates = 0;
   /* picking a card */
   for (int i = 0; i < 5; i++) {
+    rank_duplicates = 0;
     /* comparing to every card afterward */
     for (int j = i + 1; j < 5; j++) {
       if (cards_in_a_hand[i] == cards_in_a_hand[j]) {
         rank_duplicates++;
-        /* breaks after the first pair is found */
-        break;
       }
+    }
+    if (rank_duplicates == 1) {
+      /* if not a pair continue to next card */
+      break;
     }
   }
   if (rank_duplicates == 1) {
@@ -337,13 +340,13 @@ int war_sim(int cards_per_hand) {
       g_game_results[0]++;
       g_game_results[1]++;
     }
-    /* player 1 wins */
     else if (war_card_comp(g_card_hands[0][i])
       > war_card_comp(g_card_hands[1][i])) {
+      /* player 1 wins */
       g_game_results[0]++;
     }
-    /* player 2 wins player 1 loses */
     else {
+      /* player 2 wins player 1 loses */
       g_game_results[1]++;
     }
   }
@@ -388,7 +391,7 @@ int blackjack_sim(int num_players, int dealer_total) {
     * if dealer busts and player doesn't.
     * Player wins even if hand is lower
     * than dealers if busted */
-    if ((dealer_total > 21 && total_value_of_cards <= 21) ||
+    if ((dealer_total > 21) && (total_value_of_cards <= 21) ||
       ((total_value_of_cards <= 21)
         && (total_value_of_cards > dealer_total))) {
       g_game_results[i] = WIN;
