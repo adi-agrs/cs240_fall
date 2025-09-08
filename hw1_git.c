@@ -18,8 +18,8 @@
 #define INVALID_CARD (-3)
 #define OK (-1)
 #define WIN (7)
-#define LOSE 8
-#define TIE 9
+#define LOSE (8)
+#define TIE (9)
 #define FOUR_OF_A_KIND (6)
 #define FULL_HOUSE (4)
 #define THREE_OF_A_KIND (3)
@@ -167,25 +167,32 @@ bool check_three_of_a_kind(char cards_in_a_hand[5]) {
   return false;
 }
 
+//22344 47435 38638
+
 /**
  * check_two_pair - return true if hand has exactly 2 pairs
  */
 bool check_two_pair(char cards_in_a_hand[5]) {
   int rank_duplicates = 0;
   int number_of_pairs = 0;
+  char pair_one = '';
+
   for (int i = 0; i < 5; i++) {
-    //first card = cards_in_a_hand[0]
-    for (int j = 0; j < 5; j++) {
-      // checks the (i) card against every other card
-      if (cards_in_a_hand[i] == cards_in_a_hand[j]) {
-        rank_duplicates++;
+    if (cards_in_a_hand[i] != pair_one) {
+      //first card = cards_in_a_hand[0]
+      for (int j = i + 1; j < 5; j++) {
+        // checks the (i) card against every other card
+        if (cards_in_a_hand[i] == cards_in_a_hand[j]) {
+          rank_duplicates++;
+        }
       }
-    }
-    if (rank_duplicates != 2) {
-      rank_duplicates = 0;
-    }
-    if (rank_duplicates == 2) {
-      number_of_pairs++;
+      if (rank_duplicates != 2) {
+        rank_duplicates = 0;
+      }
+      if (rank_duplicates == 2) {
+        number_of_pairs++;
+        pair_one = cards_in_a_hand[i];
+      }
     }
   }
   if (number_of_pairs == 2) {
@@ -194,25 +201,27 @@ bool check_two_pair(char cards_in_a_hand[5]) {
   return false;
 }
 
-/**
- * check_pair - return true if hand has exactly 1 pair
- */
 bool check_pair(char cards_in_a_hand[5]) {
   int rank_duplicates = 0;
   int number_of_pairs = 0;
+  char pair_one = '';
+
   for (int i = 0; i < 5; i++) {
-    //first card = cards_in_a_hand[0]
-    for (int j = 0; j < 5; j++) {
-      // checks the (i) card against every other card
-      if (cards_in_a_hand[i] == cards_in_a_hand[j]) {
-        rank_duplicates++;
+    if (cards_in_a_hand[i] != pair_one) {
+      //first card = cards_in_a_hand[0]
+      for (int j = i + 1; j < 5; j++) {
+        // checks the (i) card against every other card
+        if (cards_in_a_hand[i] == cards_in_a_hand[j]) {
+          rank_duplicates++;
+        }
       }
-    }
-    if (rank_duplicates != 2) {
-      rank_duplicates = 0;
-    }
-    if (rank_duplicates == 2) {
-      number_of_pairs++;
+      if (rank_duplicates != 2) {
+        rank_duplicates = 0;
+      }
+      if (rank_duplicates == 2) {
+        number_of_pairs++;
+        pair_one = cards_in_a_hand[i];
+      }
     }
   }
   if (number_of_pairs == 1) {
@@ -220,6 +229,7 @@ bool check_pair(char cards_in_a_hand[5]) {
   }
   return false;
 }
+
 
 /**
  * check_full_house - return true if hand has a 3 of a kind and a pair
@@ -268,10 +278,13 @@ int deal_cards(int num_players, int cards_per_hand) {
   if (cards_per_hand > MAX_CARDS_PER_HAND || num_players > MAX_PLAYERS || num_players < 1 ||cards_per_hand < 1 ) {
     return ERROR;
   }
+  if ((num_players*cards_per_hand) > MAX_CARDS) {
+    return ERROR;
+  }
   int card_index = 0;
-  for (int i = 0; i < num_players; i++) {
-    for (int j = 0; j < cards_per_hand; j++) {
-      g_card_hands[i][j] = g_shuffled_deck[card_index++]; //assigns shuffled deck cards at index j to the hands
+  for (int i = 0; i < cards_per_hand; i++) {
+    for (int j = 0; j < num_players; j++) {
+      g_card_hands[j][i] = g_shuffled_deck[card_index++]; //assigns shuffled deck cards at index j to the hands
     }
   }
   return OK;
@@ -326,15 +339,12 @@ int war_sim(int cards_per_hand) {
  */
 int blackjack_sim(int num_players, int dealer_total) {
   memset(g_game_results, 0, sizeof(g_game_results));
-
   //return number of wins and ties
   int total_wins_and_ties = 0;
-
   ///HERE!!!!!!
   if (num_players > MAX_PLAYERS  || num_players < 1 || dealer_total < 2) {
     return ERROR;
   }
-  
   //REMOVED DEAL CARDS!!!
   for (int i = 0; i < num_players; i++) {
     if (check_player_cards(i,3) == INVALID_CARD) {
@@ -347,12 +357,16 @@ int blackjack_sim(int num_players, int dealer_total) {
     int total_value_of_cards = 0;
     for (int j = 0; j < 3; j++) {
       //each card (3 cards)
-    if (blackjack_val(g_card_hands[i][j]) == INVALID_CARD) {
-      return INVALID_CARD;
-    }
+      if (blackjack_val(g_card_hands[i][j]) == INVALID_CARD) {
+        return INVALID_CARD;
+      }
       total_value_of_cards += blackjack_val(g_card_hands[i][j]);
-    }
-    if (total_value_of_cards <= 21 && total_value_of_cards > dealer_total) {
+    } //here
+
+    if (dealer_total > 21 && total_value_of_cards <= 21) {
+      g_game_results[i] = WIN;
+      total_wins_and_ties++;
+    } else if (total_value_of_cards <= 21 && total_value_of_cards > dealer_total) {
       //WIN
       g_game_results[i] = WIN;
       total_wins_and_ties++;
