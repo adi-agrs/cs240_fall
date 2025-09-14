@@ -47,7 +47,6 @@ int read_battle(FILE *fp, void *out_record) {
 }
 
 double calculate_causalty_rate_from_year(char *input_file, int year, char *side){
-  double causalty_rate = 0;
   int number_of_battles_in_year = 0;
   int sum_of_forces_deployed_in_year = 0;
   int sum_of_forces_lost_in_year = 0;
@@ -68,7 +67,6 @@ double calculate_causalty_rate_from_year(char *input_file, int year, char *side)
 
   FILE *input_fp;
   input_fp = fopen(input_file, "r");
-  char buffer[1000];
   t_battle_record br;
   while (read_battle(input_fp, &br) == 11) { // all 11 items must be parsed
     if (br.year == year) {
