@@ -25,454 +25,169 @@ double fallen_jedi_sacrifice(char *input_file);
 int senate_report(char *input_file, char *output_file, int year);
 int jedi_council_report(char *input_file, char *output_file);
 
+//checks the validity of each field and returns bad data if any of them are wrong
+bool data_checker(int fields, int year, double duration, double cost, char outcome,
+  int r_forces, int r_losses, int s_forces, int s_losses) {
 
-int read_battle(FILE *fp, void *out_record) {
-  typedef struct {
-    char planet[MAX_NAME_LEN];
-    int year;
-    double duration;
-    double cost;
-    char outcome[5];
-    char jedi[MAX_NAME_LEN];
-    char clone_unit[MAX_NAME_LEN];
-    int r_forces;
-    int r_losses;
-    int s_forces;
-    int s_losses;
-  } t_battle_record;
-  t_battle_record *br = (t_battle_record *) out_record;
-  return (fscanf(fp, "%[^,],%d,%lf,%lf,%[^|]|\"%[^\"]\"&\"%[^\"]\"|%d+%d|%d+%d\n",
-         br->planet, &br->year, &br->duration, &br->cost,br->outcome, br->jedi,
-         br->clone_unit, &br->r_forces, &br->r_losses, &br->s_forces, &br->s_losses));
+  if ((fields != 11) && (fields != EOF)) {
+    return false;
+  }
+  if ((year < 19) || (year > 22)) {
+    return false;
+  }
+  if ((duration <= 0) || (duration >= 8760)) {
+    return false;
+  }
+  if (cost <= 0) {
+    return false;
+  }
+  if ((r_forces < 0) || (s_forces < 0)) {
+    return false;
+  }
+  if ((r_losses < 0) || (r_losses > r_forces)) {
+    return false;
+  }
+  if ((s_losses < 0) || (s_losses > s_forces)) {
+    return false;
+  }
+  return true;
 }
 
-double calculate_causalty_rate_from_year(char *input_file, int year, char *side){
+// void read_battle_records(const char *filename) {
+//   FILE *file = fopen(filename, "r");
+//   if (file == NULL) {
+//     perror("Error opening file");
+//     return;
+//   }
+//
+//   char planet[MAX_NAME_LEN];
+//   int yy;
+//   double duration = 0.0;
+//   double cost = 0.0;
+//   char outcome;
+//   char jedi[MAX_NAME_LEN];
+//   char clone_unit[MAX_NAME_LEN];
+//   int r_forces, r_losses, s_forces, s_losses;
+//
+//   while (fscanf(file,
+//                 "%[^,],%d,%lf,%lf,%c|\"%[^\"]\"&\"%[^\"]\"|%d+%d|%d+%d\n",
+//                 planet, &yy, &duration, &cost, &outcome,
+//                 jedi, clone_unit,
+//                 &r_forces, &r_losses, &s_forces, &s_losses) == 11) {
+//
+//     // Process the record here (print for demonstration)
+//     printf("Planet: %s\n", planet);
+//     printf("Year: %d\n", yy);
+//     printf("Duration: %.2f hours\n", duration);
+//     printf("Cost: %.2f credits\n", cost);
+//     printf("Outcome: %c\n", outcome);
+//     printf("Jedi: %s\n", jedi);
+//     printf("Clone Unit: %s\n", clone_unit);
+//     printf("Republic Forces: %d, Losses: %d\n", r_forces, r_losses);
+//     printf("Separatist Forces: %d, Losses: %d\n", s_forces, s_losses);
+//     printf("----------------------------------------\n");
+//   }
+//   fclose(file);
+// }
+
+double casualty_ratio(char *input_file, int year) {
+  char planet[MAX_NAME_LEN] = "";
+  int yy = 0;
+  double duration = 0.0;
+  double cost = 0.0;
+  char outcome = '0';
+  char jedi[MAX_NAME_LEN] = "";
+  char clone_unit[MAX_NAME_LEN] = "";
+  int r_forces = 0;
+  int r_losses = 0;
+  int s_forces = 0;
+  int s_losses = 0;
+
+  double republic_cr = 0;
+  double separatist_cr = 0;
   int number_of_battles_in_year = 0;
-  int sum_of_forces_deployed_in_year = 0;
-  int sum_of_forces_lost_in_year = 0;
+  int r_sum_of_forces_deployed_in_year = 0;
+  int r_sum_of_forces_lost_in_year = 0;
+  int s_sum_of_forces_deployed_in_year = 0;
+  int s_sum_of_forces_lost_in_year = 0;
 
-  typedef struct {
-    char planet[MAX_NAME_LEN];
-    int year;
-    double duration;
-    double cost;
-    char outcome[5];
-    char jedi[MAX_NAME_LEN];
-    char clone_unit[MAX_NAME_LEN];
-    int r_forces;
-    int r_losses;
-    int s_forces;
-    int s_losses;
-  } t_battle_record;
+  int fields = 0;
 
-  FILE *input_fp;
+  FILE *input_fp = NULL;
   input_fp = fopen(input_file, "r");
-  t_battle_record br;
-  while (read_battle(input_fp, &br) == 11) { // all 11 items must be parsed
-    if (br.year == year) {
+  if (input_fp == NULL) {
+    perror("Error opening file");
+    return FILE_READ_ERR;
+  }
+  while (1) {
+    fields = fscanf(input_fp, "%[^,],%d,%lf,%lf,%c|\"%[^\"]\"&\"%[^\"]\"|%d+%d|%d+%d\n",
+                planet, &yy, &duration, &cost, &outcome,
+                jedi, clone_unit,
+                &r_forces, &r_losses, &s_forces, &s_losses);
+    //should check for bad data here
+    if (data_checker(fields,yy,duration,cost,outcome,r_forces,r_losses,s_forces,s_losses) == false) {
+      fclose(input_fp);
+      return BAD_DATA;
+    }
+    if (fields == EOF) {
+      break;
+    }
+    if (yy == year) {
       number_of_battles_in_year++;
-      if (strcmp(side, "Republic") == 0) {
-          sum_of_forces_deployed_in_year += br.r_forces;
-          sum_of_forces_lost_in_year += br.r_losses;
-      } else if (strcmp(side, "Separatist") == 0) {
-          sum_of_forces_deployed_in_year += br.s_forces;
-          sum_of_forces_lost_in_year += br.s_losses;
-      }
+      r_sum_of_forces_deployed_in_year += r_forces;
+      r_sum_of_forces_lost_in_year += r_losses;
+      s_sum_of_forces_deployed_in_year += s_forces;
+      s_sum_of_forces_lost_in_year += s_losses;
     }
   }
   fclose(input_fp);
   if (number_of_battles_in_year <= 0) {
-      return NO_DATA;
+    printf("no data"); // comment out
+    return NO_DATA;
   }
+  republic_cr = (double)(1 + r_sum_of_forces_lost_in_year) / (number_of_battles_in_year + r_sum_of_forces_deployed_in_year);
+  separatist_cr = (double)(1 + s_sum_of_forces_lost_in_year) / (number_of_battles_in_year + s_sum_of_forces_deployed_in_year);
 
-  return ((1 + (double) sum_of_forces_lost_in_year) /
-          ((double) number_of_battles_in_year + (double) sum_of_forces_deployed_in_year));
+  if (separatist_cr == 0) {
+    return BAD_DATA;
+  }
+  
+  printf("Republic Forces: %.2f\n", republic_cr);
+  printf("Separatist Forces: %.2f\n", separatist_cr);
+
+  printf("%f\n", (republic_cr / separatist_cr));
+  return republic_cr/separatist_cr;
 }
 
 /// HW FUNCTIONS
 /* returns casualty_ratio */
-double casualty_ratio(char *input_file, int year){
-  double casualty_ratio;
-  double republic_cr = 0;
-  double seperatist_cr = 0;
-  //handle bad input in this function
-  //write errors impossible
-  if ((calculate_causalty_rate_from_year(input_file, year, "Republic") == NO_DATA)
-      || (calculate_causalty_rate_from_year(input_file, year, "Separatist") == NO_DATA)) {
-    return NO_DATA;
-  }
-  else if ((calculate_causalty_rate_from_year(input_file, year, "Republic") == BAD_DATA)
-           || (calculate_causalty_rate_from_year(input_file, year, "Separatist") == BAD_DATA)) {
-    return BAD_DATA;
-  }
-  else if ((calculate_causalty_rate_from_year(input_file, year, "Republic") == FILE_READ_ERR)
-           || (calculate_causalty_rate_from_year(input_file, year, "Separatist") == FILE_READ_ERR)) {
-    return FILE_READ_ERR;
-  }
-  else {
-    republic_cr = calculate_causalty_rate_from_year(input_file, year, "Republic");
-    seperatist_cr = calculate_causalty_rate_from_year(input_file, year, "Separatist");
-  }
-  casualty_ratio = (republic_cr / seperatist_cr);
-  return casualty_ratio;
+
+double clone_unit_casualties_stdev(char *a, char *b){
+  return 0.0;
+}
+double cost_per_hour(char *a, char *b){
+  return 0.0;
+}
+double planetary_forces_ratio(char *a, char *b){
+  return 0.0;
+}
+double fallen_jedi_sacrifce(char *a){
+  return 0.0;
+}
+int senate_report(char *a, char *b, int c){
+  return 0;
+}
+int jedi_council_report(char *a, char *b){
+  return 0;
 }
 
-double cost_per_hour(char *input_file, char *clone_unit){
+// int main (){
+//  // read_battle_records("C:/Users/adity/OneDrive/Desktop/clone_wars.txt");
+//   casualty_ratio("C:/Users/adity/OneDrive/Desktop/clone_wars.txt",22);
+//   return 0;
+// }
+//
 
-  double sum_of_costs = 0.0;
-  double total_duration_of_all_battles = 0.0;
-
-  FILE *input_fp = fopen(input_file, "r");
-  if (input_fp == NULL) {
-    return FILE_READ_ERR;
-  }
-
-  typedef struct {
-    char planet[MAX_NAME_LEN];
-    int year;
-    double duration;
-    double cost;
-    char outcome[5];
-    char jedi[MAX_NAME_LEN];
-    char clone_unit[MAX_NAME_LEN];
-    int r_forces;
-    int r_losses;
-    int s_forces;
-    int s_losses;
-  } t_battle_record;
-
-  t_battle_record br;
-
-  while (read_battle(input_fp, &br) == 11) { //EOF isnt reached. all slots are being filled
-    if (strcmp(clone_unit, br.clone_unit) == 0) {
-      sum_of_costs += br.cost;
-      total_duration_of_all_battles += br.duration;
-    }
-  }
-  fclose(input_fp);
-  if (total_duration_of_all_battles <= 0.0) {
-    return NO_DATA;
-  }
-  return sum_of_costs / total_duration_of_all_battles; //cost_per_hour
-}
-
-double planetary_forces_ratio(char *input_file, char *planet){
-  double number_of_battles = 0.0;
-  double number_of_r_forces = 0.0;
-  double number_of_s_forces = 0.0;
-
-  FILE *input_fp = fopen(input_file, "r");
-  if (input_fp == NULL) {
-    return FILE_READ_ERR;
-  }
-
-  typedef struct {
-    char planet[MAX_NAME_LEN];
-    int year;
-    double duration;
-    double cost;
-    char outcome[5];
-    char jedi[MAX_NAME_LEN];
-    char clone_unit[MAX_NAME_LEN];
-    int r_forces;
-    int r_losses;
-    int s_forces;
-    int s_losses;
-  } t_battle_record;
-
-  t_battle_record br;
-
-  while (read_battle(input_fp, &br) == 11) {
-    if ((strcmp(planet, br.planet) == 0)) {
-      number_of_battles++;
-      if (strcmp(br.outcome, "W")) {
-        number_of_r_forces += br.r_forces;
-        number_of_s_forces += br.s_forces;
-      }
-    }
-  }
-  fclose(input_fp);
-  if (number_of_battles <= 0.0) {
-    return NO_DATA;
-  }
-  return ((1 + number_of_r_forces) / ((number_of_battles) + (number_of_s_forces))); //ratio returned
-}
-
-double clone_unit_casualties_stdev(char *input_file, char *clone_unit){
-  double stdev = 0.0;
-  double sum_of_losses = 0.0;
-  double avg_losses = 0.0;
-  double number_of_battles_by_unit = 0.0;
-  FILE *input_fp = fopen(input_file, "r");
-  if (input_fp == NULL) {
-    return FILE_READ_ERR;
-  }
-  typedef struct {
-    char planet[MAX_NAME_LEN];
-    int year;
-    double duration;
-    double cost;
-    char outcome[5];
-    char jedi[MAX_NAME_LEN];
-    char clone_unit[MAX_NAME_LEN];
-    int r_forces;
-    int r_losses;
-    int s_forces;
-    int s_losses;
-  } t_battle_record;
-  t_battle_record br;
-
-  while (read_battle(input_fp, &br) == 11) {
-    if (strcmp(clone_unit, br.clone_unit) == 0) {
-      number_of_battles_by_unit++;
-      sum_of_losses += br.r_losses;
-    }
-  }
-  avg_losses = sum_of_losses / number_of_battles_by_unit; //avg found
-  rewind(input_fp);
-  while (read_battle(input_fp, &br) == 11) {
-    if (strcmp(clone_unit, br.clone_unit) == 0) {
-     stdev += pow((br.r_losses - avg_losses),2);
-    }
-  }
-  fclose(input_fp);
-  stdev = sqrt(stdev / number_of_battles_by_unit);
-  return stdev;
-}
-
-bool fallen_jedi_check(double cost, double duration, int r_forces, int r_losses){
-  int integer_cost = (int)floor(cost);
-
-  //possible error here about the def of significant digits
-
-  bool cost_condition = false;
-  if (((integer_cost % 66) == 0) || ((integer_cost / 1000) == 501)){
-    cost_condition = true;
-  }
-  if ((cost_condition == true) && (duration > 5555.27) && (r_forces == r_losses)) {
-    return true;
-  }
-  return false;
-}
-
-double fallen_jedi_sacrifice(char *input_file){
-  double total_battles_where_jedi_fell = 0.0;
-  double wins_jedi_fell = 0.0;
-
-  FILE *input_fp = fopen(input_file, "r");
-  if (input_fp == NULL) {
-    return FILE_READ_ERR;
-  }
-  typedef struct {
-    char planet[MAX_NAME_LEN];
-    int year;
-    double duration;
-    double cost;
-    char outcome[5];
-    char jedi[MAX_NAME_LEN];
-    char clone_unit[MAX_NAME_LEN];
-    int r_forces;
-    int r_losses;
-    int s_forces;
-    int s_losses;
-  } t_battle_record;
-  t_battle_record br;
-
-  while (read_battle(input_fp, &br) == 11) {
-    if (fallen_jedi_check(br.cost, br.duration, br.r_forces, br.r_losses)) {
-      total_battles_where_jedi_fell++;
-      if (strcmp(br.outcome, "W") == 0) {
-        wins_jedi_fell++;
-      }
-    }
-  }
-  if (total_battles_where_jedi_fell == 0) {
-    return NO_DATA;
-  }
-  return (wins_jedi_fell/ total_battles_where_jedi_fell);
-}
-
-double truncate4(double value) {
-  return floor(value * 10000.0) / 10000.0;
-}
-
-int senate_report(char *input_file, char *output_file, int year) {
-  FILE *input_fp = fopen(input_file, "r");
-  if (input_fp == NULL) {
-    return FILE_READ_ERR;
-  }
-  typedef struct {
-    char planet[MAX_NAME_LEN];
-    int year;
-    double duration;
-    double cost;
-    char outcome[5];
-    char jedi[MAX_NAME_LEN];
-    char clone_unit[MAX_NAME_LEN];
-    int r_forces;
-    int r_losses;
-    int s_forces;
-    int s_losses;
-  } t_battle_record;
-
-  t_battle_record br;
-  int total_battles = 0;
-  int total_battles_won = 0;
-  double total_expenditure = 0.0;
-  int total_republic_forces = 0;
-  double total_win_cost = 0.0;
-
-  while (read_battle(input_fp, &br) == 11) {
-    if (br.year == year) {
-      total_battles++;
-      total_expenditure += br.cost;
-      total_republic_forces += br.r_forces;
-      if (strcmp(br.outcome, "W") == 0) {
-        total_battles_won++;
-        total_win_cost += br.cost;
-      }
-    }
-  }
-
-  if ((total_battles == 0) || (total_republic_forces == 0)) {
-    return NO_DATA;
-  }
-  double avg_cost_per_battle = truncate4(total_expenditure / total_battles);
-  double avg_cost_per_soldier = truncate4(total_expenditure / total_republic_forces);
-  double victory_cost_percent = truncate4((total_win_cost / total_expenditure) * 100.0);
-  FILE *output_fp = fopen(output_file, "w");
-  if (output_fp == NULL) {
-    fclose(input_fp);
-    return FILE_WRITE_ERR;
-  }
-  char *header1 = "==================================================";
-  char *header2 = "== GALACTIC SENATE DEFENSE EXPENDITURE REPORT ==";
-  char *header3 = "============= FOR SENATE EYES ONLY =============";
-  fprintf(output_fp, "%s\n%s\n%s\n%s\n", header1, header2, header3, header1);
-  fprintf(output_fp, "Total Battles Funded: %d\n", total_battles);
-  // Print total expenditure directly and measure length for dashes
-  int chars_written = fprintf(output_fp, "Total Expenditure: %.4f Galactic Credits\n", truncate4(total_expenditure));
-  for (int i = 0; i < chars_written - 1; i++) {
-    fprintf(output_fp, "-");
-  }
-  fprintf(output_fp, "\n");
-  fprintf(output_fp, "Average Cost per Battle: %.4f Galactic Credits\n", avg_cost_per_battle);
-  fprintf(output_fp, "Average Cost per Soldier: %.4f Galactic Credits\n", avg_cost_per_soldier);
-  fprintf(output_fp, "Victory Cost: %.4f%%\n", victory_cost_percent);
-  fprintf(output_fp, "For the Republic!\n");
-  fclose(output_fp);
-  return total_battles_won;
-}
-
-int jedi_council_report(char *input_file, char *output_file) {
-  FILE *input_fp = fopen(input_file, "r");
-
-  if (input_fp == NULL) {
-    return FILE_READ_ERR;
-  }
-
-  typedef struct {
-    char planet[MAX_NAME_LEN];
-    int year;
-    double duration;
-    double cost;
-    char outcome[5];
-    char jedi[MAX_NAME_LEN];
-    char clone_unit[MAX_NAME_LEN];
-    int r_forces;
-    int r_losses;
-    int s_forces;
-    int s_losses;
-  } t_battle_record;
-
-  t_battle_record br;
-
-  // Track Jedi victories
-  char current_jedi[MAX_NAME_LEN] = "";
-  int current_victories = 0;
-  char most_victorious_jedi[MAX_NAME_LEN] = "";
-  int max_victories = 0;
-
-  // Track fallen Jedi
-  typedef struct {
-      char jedi[MAX_NAME_LEN];
-      char clone_unit[MAX_NAME_LEN];
-      char planet[MAX_NAME_LEN];
-  } fallen_t;
-
-  fallen_t fallen_heroes[1000]; // arbitrary limit
-  int fallen_count = 0;
-
-  while (read_battle(input_fp, &br) == 11) {
-      // Count victories per Jedi
-      if (strcmp(br.jedi, current_jedi) != 0) {
-          // New Jedi group, check previous
-          if (current_victories > max_victories) {
-              max_victories = current_victories;
-              strcpy(most_victorious_jedi, current_jedi);
-          }
-          strcpy(current_jedi, br.jedi);
-          current_victories = 0;
-      }
-      if (strcmp(br.outcome, "W") == 0) current_victories++;
-
-      // Check fallen Jedi
-      if (fallen_jedi_check(br.cost, br.duration, br.r_forces, br.r_losses)) {
-          strcpy(fallen_heroes[fallen_count].jedi, br.jedi);
-          strcpy(fallen_heroes[fallen_count].clone_unit, br.clone_unit);
-          strcpy(fallen_heroes[fallen_count].planet, br.planet);
-          fallen_count++;
-      }
-  }
-  // Check last Jedi group
-  if (current_victories > max_victories) {
-      max_victories = current_victories;
-      strcpy(most_victorious_jedi, current_jedi);
-  }
-
-  fclose(input_fp);
-
-  // Open output
-  FILE *output_fp = fopen(output_file, "w");
-  if (output_fp == NULL) {
-    fclose(input_fp);
-    return FILE_WRITE_ERR;
-  }
-
-  char *header1 = "===========================================";
-  char *header2 = "== JEDI HIGH COUNCIL TACTICAL BRIEFING ==";
-  char *header3 = "======= FOR JEDI MASTER EYES ONLY =======";
-
-  fprintf(output_fp, "%s\n%s\n%s\n%s\n", header1, header2, header3, header1);
-
-  fprintf(output_fp, "Most Victorious Jedi General: %s with %d victories\n",
-          most_victorious_jedi, max_victories);
-
-  fprintf(output_fp, "Jedi Casualties: %d\n", fallen_count);
-
-  if (fallen_count > 0) {
-      fprintf(output_fp, "Jedi Sacrifice Effectiveness: %.4f%%\n", fallen_jedi_sacrifice(input_file));
-  } else {
-      fprintf(output_fp, "Jedi Sacrifice Effectiveness: N/A\n");
-  }
-
-  // fallen heroes section
-  if (fallen_count > 0) {
-    char *fallen_header = "Fallen Heroes and Lost Units:";
-    fprintf(output_fp, "%s\n", fallen_header);
-    fprintf(output_fp, "-----------------------------\n");
-
-      for (int i = 0; i < fallen_count; i++) {
-        fprintf(output_fp, "%s fell alongside their %s unit on %s\n",
-                fallen_heroes[i].jedi,
-                fallen_heroes[i].clone_unit,
-                fallen_heroes[i].planet);
-      }
-  }
-  fprintf(output_fp, "May the Force guide our strategy to bring peace to the galaxy!\n");
-  fclose(output_fp);
-  return fallen_count; // number of fallen Jedi
-}
 
 
 
