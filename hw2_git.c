@@ -162,7 +162,7 @@ double casualty_ratio(char *input_file, int year) {
 /// HW FUNCTIONS
 /* returns casualty_ratio */
 
-double clone_unit_casualties_stdev(char *input_file, char *clone_unit){
+double clone_unit_casualties_stdev_1(char *input_file, char *clone_unit){
   if (clone_unit == NULL || strlen(clone_unit) == 0) {
     return BAD_INPUT;
   }
@@ -197,12 +197,10 @@ double clone_unit_casualties_stdev(char *input_file, char *clone_unit){
       break;
     }
   }
-
   if (first_char == EOF) {
     fclose(input_fp);
     return NO_DATA; // File is empty or only whitespace
   }
-
   rewind(input_fp);
 
   while (1) {
@@ -231,6 +229,15 @@ double clone_unit_casualties_stdev(char *input_file, char *clone_unit){
       sum_of_losses += r_losses;
     }
   }
+  if (number_of_battles_by_unit == 0) {
+    fclose(input_fp);
+    return NO_DATA;
+  }
+  if (sum_of_losses == 0) {
+    fclose(input_fp);
+    return NO_DATA;
+  }
+
   avg_losses = sum_of_losses / number_of_battles_by_unit; //avg found
   rewind(input_fp);
   while (1) {
@@ -262,7 +269,270 @@ double clone_unit_casualties_stdev(char *input_file, char *clone_unit){
   stdev = sqrt(stdev / number_of_battles_by_unit);
   return stdev;
 }
+
+/** Compare strings without case or space check
+*/
+// Single function to compare strings ignoring case and spaces
+int compare_ignore_case_space(const char *str1, const char *str2) {
+  int i = 0, j = 0;
+
+  while (str1[i] != '\0' && str2[j] != '\0') {
+    // Skip spaces in both strings
+    while (str1[i] == ' ') i++;
+    while (str2[j] == ' ') j++;
+
+    // If either string ends after skipping spaces, break
+    if (str1[i] == '\0' || str2[j] == '\0') {
+      break;
+    }
+
+    // Compare characters case-insensitively
+    if (tolower((unsigned char)str1[i]) != tolower((unsigned char)str2[j])) {
+      return tolower((unsigned char)str1[i]) - tolower((unsigned char)str2[j]);
+    }
+
+    i++;
+    j++;
+  }
+
+  // Skip any remaining spaces in both strings
+  while (str1[i] == ' ') i++;
+  while (str2[j] == ' ') j++;
+
+  // Check if both strings have reached the end
+  if (str1[i] == '\0' && str2[j] == '\0') {
+    return 0;  // Strings are equal
+  } else if (str1[i] == '\0') {
+    return -1; // str1 is shorter
+  } else {
+    return 1;  // str2 is shorter
+  }
+}
+/// HW FUNCTIONS
+/* returns casualty_ratio */
+
+double clone_unit_casualties_stdev(char *input_file, char *clone_unit){
+  printf("\n clone_unit_casualties_stdev======file name:%s, clone_unit:%s", input_file, clone_unit);
+  if (clone_unit == NULL || strlen(clone_unit) == 0) {
+    return BAD_INPUT;
+  }
+
+  double stdev = 0.0;
+  double sum_of_losses = 0.0;
+  double avg_losses = 0.0;
+  double number_of_battles_by_unit = 0.0;
+
+  char planet[1000] = "";
+  int yy = 0;
+  double duration = 0.0;
+  double cost = 0.0;
+  char outcome = '0';
+  char jedi[1000] = "";
+  char clone_unit_name[1000] = "";
+  int r_forces = 0;
+  int r_losses = 0;
+  int s_forces = 0;
+  int s_losses = 0;
+
+  int fields = 0;
+  // to hold r losses
+  double *casualties = NULL;
+  int capacity = 10;
+  int size = 0;
+
+  casualties = (double *)malloc(capacity * sizeof(double));
+  if (casualties == NULL) {
+    return FILE_READ_ERR;
+  }
+
+  FILE *input_fp = fopen(input_file, "r");
+  if (input_fp == NULL) {
+    return FILE_READ_ERR;
+  }
+
+  int first_char;
+  while ((first_char = fgetc(input_fp)) != EOF) {
+    if (!isspace(first_char)) {
+      break;
+    }
+  }
+
+  if (first_char == EOF) {
+    fclose(input_fp);
+    return NO_DATA; // File is empty or only whitespace
+  }
+
+  rewind(input_fp);
+
+  while (1) {
+    fields = fscanf(input_fp, "%49[^,],%d,%lf,%lf,%c|\"%49[^\"]\"&\"%49[^\"]\"|%d+%d|%d+%d\n",
+                planet, &yy, &duration, &cost, &outcome,
+                jedi, clone_unit,
+                &r_forces, &r_losses, &s_forces, &s_losses);
+    if (strlen(planet) == MAX_NAME_LEN || strlen(clone_unit) == MAX_NAME_LEN) {
+      fclose(input_fp);
+      printf("\n 1......bad data   planet:%s, clone unit:%s", planet, clone_unit );
+      return BAD_DATA;
+    }
+    if (fields == EOF) {
+      break;
+    }
+    if (fields != 11) {
+      fclose(input_fp);
+      return BAD_DATA;
+    }
+    //should check for bad data here
+    if (data_checker(planet, jedi, clone_unit_name,yy, duration, cost, outcome, r_forces, r_losses, s_forces, s_losses) == false) {
+      fclose(input_fp);
+      printf("\n 2......bad data   planet:%s, clone unit:%s", planet, clone_unit );
+      return BAD_DATA;
+    }
+    if (compare_ignore_case_space(clone_unit,clone_unit_name) == 1) {
+
+      if (size >= capacity) {
+        capacity *= 2;
+        double *temp = (double *)realloc(casualties, capacity * sizeof(double));
+        if (temp == NULL) {
+          free(casualties);
+          fclose(input_fp);
+          return FILE_READ_ERR;
+        }
+        casualties = temp;
+      }
+
+      casualties[size] = r_losses;
+      sum_of_losses += r_losses;
+      size++;
+      number_of_battles_by_unit++;
+
+    }
+  }
+  // If no battles found for this clone unit
+  if (number_of_battles_by_unit == 0) {
+    free(casualties);
+    return 0.0;
+  }
+
+  // Calculate mean
+  avg_losses = sum_of_losses / number_of_battles_by_unit; //avg found
+  double sum_squared_diff = 0.0;
+  // Calculate sum of squared differences
+  for (int i = 0; i < number_of_battles_by_unit; i++) {
+    double diff = casualties[i] - avg_losses;
+    sum_squared_diff += diff * diff;
+  }
+
+  free(casualties);
+// Calculate and return standard deviation
+  double result = sqrt(sum_squared_diff / number_of_battles_by_unit);
+  printf("The std is:%lf", result);
+  return result;
+}
+
+/* Calculate cost per hour
+*/
 double cost_per_hour(char *input_file, char *clone_unit){
+
+  printf("File Name:%s, Clone Unit:%s", input_file, clone_unit);
+  if (clone_unit == NULL || strlen(clone_unit) == 0) {
+    return BAD_INPUT;
+  }
+  FILE *input_fp = NULL;
+  input_fp = fopen(input_file, "r");
+  if (input_fp == NULL) {
+    return FILE_READ_ERR;
+  }
+
+  int first_char;
+  while ((first_char = fgetc(input_fp)) != EOF) {
+    if (!isspace(first_char)) {
+      break;
+    }
+  }
+
+  if (first_char == EOF) {
+    fclose(input_fp);
+    return NO_DATA; // File is empty or only whitespace
+  }
+
+  rewind(input_fp);
+
+  int fields = 0;
+  char planet[MAX_NAME_LEN] = "";
+  int yy = 0;
+  double duration = 0.0;
+  double cost = 0.0;
+  char outcome = '0';
+  char jedi[MAX_NAME_LEN] = "";
+  char clone_unit_name[MAX_NAME_LEN] = "";
+  int r_forces = 0;
+  int r_losses = 0;
+  int s_forces = 0;
+  int s_losses = 0;
+  double sum_of_costs = 0.0;
+  double total_duration_of_all_battles = 0.0;
+
+  while (1) {
+    fields = fscanf(input_fp, "%49[^,],%d,%lf,%lf,%c|\"%49[^\"]\"&\"%49[^\"]\"|%d+%d|%d+%d\n",
+                      planet, &yy, &duration, &cost, &outcome,
+                      jedi, clone_unit,
+                      &r_forces, &r_losses, &s_forces, &s_losses);
+    // Check for truncated names (assuming max length of 50)
+    if (strlen(planet) == MAX_NAME_LEN || (strlen(clone_unit) == MAX_NAME_LEN)) {
+      // Name was truncated, handle as error or warning
+      printf("/n 2..Clone Unit:%s, PLANET:%s\n", clone_unit, planet);
+      fclose(input_fp);
+      return BAD_DATA;
+    }
+    if (fields == EOF) {
+      break;
+    }
+    if (fields != 11) {
+      fclose(input_fp);
+      return BAD_DATA;
+    }
+    if (data_checker(planet, jedi, clone_unit,yy, duration, cost, outcome, r_forces, r_losses, s_forces, s_losses) == false) {
+      fclose(input_fp);
+      printf("/n 3.....Clone Unit:%s, PLANET:%s\n", clone_unit, planet);
+      return BAD_DATA;
+    }
+    if (compare_ignore_case_space(clone_unit_name, clone_unit) == 1) {
+      sum_of_costs += cost;
+      total_duration_of_all_battles += duration;
+    }
+  }
+  fclose(input_fp);
+  if (total_duration_of_all_battles <= 0.0) {
+    return NO_DATA;
+  }
+  //COMMENT OUT
+  printf("costs per hour = %lf\n", sum_of_costs/total_duration_of_all_battles);
+  return sum_of_costs / total_duration_of_all_battles; //cost_per_hour
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+double cost_per_hour_1(char *input_file, char *clone_unit){
   if (clone_unit == NULL || strlen(clone_unit) == 0) {
     return BAD_INPUT;
   }
@@ -330,6 +600,9 @@ double cost_per_hour(char *input_file, char *clone_unit){
   }
   fclose(input_fp);
   if (total_duration_of_all_battles <= 0.0) {
+    if (sum_of_costs > 0.0) {
+      return sum_of_costs;
+    }
     return NO_DATA;
   }
   //COMMENT OUT
@@ -418,7 +691,6 @@ double planetary_forces_ratio(char *input_file, char *planet){
 
 bool fallen_jedi_check(double cost, double duration, int r_forces, int r_losses){
   int integer_cost = (int)floor(cost);
-  //possible error here about the def of significant digits
   bool cost_condition = false;
   if (((integer_cost % 66) == 0) || ((integer_cost % 1000) == 501)){
     cost_condition = true;
@@ -497,11 +769,12 @@ double fallen_jedi_sacrifice(char *input_file) {
     fclose(input_fp);
     return NO_DATA;
   }
+  fclose(input_fp);
   return (wins_jedi_fell/ total_battles_where_jedi_fell);
 }
 
 double truncate4(double value) {
-  return floor(value * 10000.0) / 10000.0;
+  return (value * 10000.0) / 10000.0;
 }
 
 ///TEST THIS OUT LATER FOR LESS CODE
@@ -606,10 +879,11 @@ int senate_report(char *input_file, char *output_file, int year) {
     fclose(input_fp);
     return FILE_WRITE_ERR;
   }
+  fclose(input_fp);
   char *header1 = "==================================================";
-  char *header2 = "== GALACTIC SENATE DEFENSE EXPENDITURE REPORT ==";
-  char *header3 = "============= FOR SENATE EYES ONLY =============";
-  fprintf(output_fp, "%s\n%s\n%s\n%s\n", header1, header2, header3, header1);
+  char *header2 = " == GALACTIC SENATE DEFENSE EXPENDITURE REPORT ==";
+  char *header3 = " ============= FOR SENATE EYES ONLY =============";
+  fprintf(output_fp, "%s\n%s\n%s\n%s\n\n", header1, header2, header3, header1);
   fprintf(output_fp, "Total Battles Funded: %d\n", total_battles);
   // Print total expenditure directly and measure length for dashes
   int chars_written = fprintf(output_fp, "Total Expenditure: %.4f Galactic Credits\n", truncate4(total_expenditure));
@@ -620,7 +894,7 @@ int senate_report(char *input_file, char *output_file, int year) {
   fprintf(output_fp, "Average Cost per Battle: %.4f Galactic Credits\n", avg_cost_per_battle);
   fprintf(output_fp, "Average Cost per Soldier: %.4f Galactic Credits\n", avg_cost_per_soldier);
   fprintf(output_fp, "Victory Cost: %.4f%%\n", victory_cost_percent);
-  fprintf(output_fp, "For the Republic!\n");
+  fprintf(output_fp, "\nFor the Republic!\n");
   fclose(output_fp);
   return total_battles_won;
 }
@@ -663,6 +937,8 @@ int jedi_council_report(char *input_file, char *output_file) {
   int current_victories = 0;
   char most_victorious_jedi[MAX_NAME_LEN] = "";
   int max_victories = 0;
+
+  int fallen_victories = 0;
 
   // Track fallen Jedi
   typedef struct {
@@ -722,24 +998,27 @@ int jedi_council_report(char *input_file, char *output_file) {
       max_victories = current_victories;
       strcpy(most_victorious_jedi, current_jedi);
   }
-  fclose(input_fp);
   // Open output
   FILE *output_fp = fopen(output_file, "w");
   if (output_fp == NULL) {
     fclose(input_fp);
     return FILE_WRITE_ERR;
   }
+  fclose(input_fp);
   char *header1 = "===========================================";
-  char *header2 = "== JEDI HIGH COUNCIL TACTICAL BRIEFING ==";
-  char *header3 = "======= FOR JEDI MASTER EYES ONLY =======";
-  fprintf(output_fp, "%s\n%s\n%s\n%s\n", header1, header2, header3, header1);
+  char *header2 = " == JEDI HIGH COUNCIL TACTICAL BRIEFING ==";
+  char *header3 = " ======= FOR JEDI MASTER EYES ONLY =======";
+  fprintf(output_fp, "%s\n%s\n%s\n%s\n\n", header1, header2, header3, header1);
   fprintf(output_fp, "Most Victorious Jedi General: %s with %d victories\n",
           most_victorious_jedi, max_victories);
   fprintf(output_fp, "Jedi Casualties: %d\n", fallen_count);
   if (fallen_count > 0) {
-      fprintf(output_fp, "Jedi Sacrifice Effectiveness: %.4f%%\n", fallen_jedi_sacrifice(input_file));
-  } else {
+      double sacrifice_effectiveness = fallen_jedi_sacrifice(input_file);
+      fallen_victories = (int) (sacrifice_effectiveness * fallen_count);
+      fprintf(output_fp, "Jedi Sacrifice Effectiveness: %.4f%%\n", sacrifice_effectiveness);
+  } else if (fallen_count == 0) {
       fprintf(output_fp, "Jedi Sacrifice Effectiveness: N/A\n");
+      return fallen_victories; //no fallen_victories
   }
   // fallen heroes section
   if (fallen_count > 0) {
@@ -754,9 +1033,10 @@ int jedi_council_report(char *input_file, char *output_file) {
                 fallen_heroes[i].planet);
       }
   }
-  fprintf(output_fp, "May the Force guide our strategy to bring peace to the galaxy!\n");
+  fprintf(output_fp, "\nMay the Force guide our strategy to bring peace to the galaxy!\n");
   fclose(output_fp);
-  return fallen_count; // number of fallen Jedi
+
+  return fallen_victories;
 }
 
 //  int main (){
